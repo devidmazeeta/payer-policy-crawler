@@ -1,0 +1,53 @@
+# Payer Policy Document Discovery - pinned dependencies
+# Install with:  pip install -r requirements.txt
+#
+# Everything below is a free, open-source library. There are no paid proxies or
+# paid APIs anywhere in this project (crawl.proxy_url exists but defaults to
+# empty and is documented as optional in README.md).
+
+# --- HTTP (async) ----------------------------------------------------------
+# httpx drives every request: HTTP/2-capable, real async, and a timeout model
+# that distinguishes connect from read - which is what lets the fetcher report
+# transport failures as http_status=0 rather than guessing.
+httpx==0.28.1
+# h11/anyio/certifi/idna/sniffio come in as httpx dependencies; pinned so a
+# fresh install is reproducible.
+anyio==4.11.0
+certifi==2025.8.3
+h11==0.16.0
+httpcore==1.0.9
+idna==3.10
+sniffio==1.3.1
+
+# --- HTML parsing ----------------------------------------------------------
+# BeautifulSoup for tolerant anchor/title extraction, lxml as its fast parser.
+# Payer HTML is frequently invalid enough to defeat a strict parser.
+beautifulsoup4==4.14.3
+soupsieve==2.8
+lxml==6.1.3
+
+# --- PDF text extraction ---------------------------------------------------
+# pypdf reads titles, policy numbers and printed effective dates out of policy
+# PDFs. Pure Python, so no build toolchain is required on Windows.
+pypdf==6.17.0
+
+# --- Configuration ---------------------------------------------------------
+PyYAML==6.0.3
+
+# --- XLSX output -----------------------------------------------------------
+# Only needed for output.xlsx; output.csv works without it and the run degrades
+# gracefully (logs an ERROR, writes the CSV) if it is missing.
+openpyxl==3.1.5
+et-xmlfile==2.0.0
+
+# --- Optional: Gmail API delivery (email.smtp_or_gmail_api: gmail_api) -----
+# Not needed when email.enabled is false (the default), nor for the "smtp"
+# transport, which uses only the standard library. Uncomment to enable.
+# google-api-python-client==2.184.0
+# google-auth==2.41.1
+# google-auth-oauthlib==1.2.2
+# google-auth-httplib2==0.2.0
+
+# --- Development / tests ---------------------------------------------------
+pytest==8.4.2
+pytest-asyncio==1.2.0

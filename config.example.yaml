@@ -1,0 +1,179 @@
+# =============================================================================
+# Payer Policy Document Discovery - example configuration
+# =============================================================================
+# Copy to config.yaml and edit. Every value here can be overridden from the
+# command line, and the precedence order is:
+#
+#     CLI argument  >  config file value  >  built-in default
+#
+# A flag you do not pass is invisible to the merge, so it never clobbers the
+# value in this file. Run `python -m crawler.main --show-config` to print the
+# fully merged configuration, or `--dry-run` to validate without fetching.
+#
+# Relative paths are resolved against the directory you run the command from.
+# Startup validation is fail-fast: a bad value stops the run immediately with a
+# message naming the field, rather than surfacing mid-crawl.
+# =============================================================================
+
+crawl:
+  # Hard cap on emitted documents per payer. Keeps one sprawling payer (UHC
+  # publishes thousands of policies) from consuming the whole run budget.
+  # CLI: --max-docs-per-payer
+  max_docs_per_payer: 50
+
+  # Input seed list: one row per payer with payer_name, payer_alias, hint_host
+  # and optional hints. The hint host is only a STARTING POINT - the crawler
+  # follows redirects, subdomains and regional sites away from it.
+  # CLI: --payer-csv
+  payer_seed_csv: "payer_seed_list.csv"
+
+  # 1-based inclusive selection over the seed CSV. Accepts "1-10", "3,5,7",
+  # "1-3,8" or "all". Useful for splitting a run or re-crawling one payer.
+  # CLI: --payer-range
+  payer_range: "1-10"
+
+  # Maximum simultaneous in-flight HTTP requests across the ENTIRE run.
+  # This is a global ceiling; per-host pacing is the setting below.
+  # CLI: --concurrency-cap
+  concurrency_cap: 8
+
+  # Requests per second allowed PER HOST, enforced by a token bucket. 1.0 means
+  # one request per second to that host no matter how many workers want it.
+  # A robots.txt Crawl-delay always overrides this downward, never upward.
+  # Values above 10 are rejected as impolite.
+  # CLI: --rate-limit
+  per_domain_rate_limit_per_sec: 1.0
+
+  # Retries AFTER the first attempt, so 3 means up to 4 total tries.
+  # Only applied to failures a retry can fix: timeouts, connection errors,
+  # 429 and 5xx. A 403/404 is returned immediately.
+  # CLI: --retry-limit
+  retry_limit: 3
+
+  # First backoff sleep in seconds. Under "exponential" this doubles per retry
+  # (1.5s, 3s, 6s, ...) with up to 25% jitter, capped at 60s.
+  # CLI: --backoff-base
+  backoff_base_seconds: 1.5
+
+  # "exponential" (base * 2**attempt) or "fixed" (always base).
+  # CLI: --backoff-strategy
+  backoff_strategy: "exponential"
+
+  # Per-request timeout in seconds, covering connect + read.
+  # CLI: --timeout
+  request_timeout_seconds: 30
+
+  # Descriptive User-Agent. MUST contain a contact email or URL - validation
+  # rejects it otherwise - so a payer's ops team can identify and reach you
+  # from a single access-log line. Put YOUR address here.
+  # CLI: --user-agent
+  user_agent: "PayerPolicyCrawler/1.0 (+contact: you@example.com; purpose: public policy document discovery research)"
+
+  # Frontier budgets. These bound the crawl's breadth so a payer with a huge
+  # sitemap cannot spend the whole run on one host.
+  max_index_pages_per_payer: 40     # index/category pages crawled per payer
+  max_sitemaps_per_payer: 12        # sitemap documents (incl. nested indexes)
+
+  # Cap on candidates tried by the robots-blocked enumeration fallback (see
+  # NOTES.md). Set to 0 to disable enumeration entirely.
+  max_enumeration_candidates: 60
+
+  # Follow HTTP redirects. Keep this on: the hint host is a starting point and
+  # most payers redirect to a provider or regional subdomain.
+  follow_redirects: true
+
+  # Extra hosts to treat as in scope, beyond the seed host's registrable domain
+  # (which is always allowed, so www./provider./regional subdomains work).
+  # Use this for a payer whose documents live on a separate host they own.
+  allowed_extra_hosts: []
+
+  # Optional outbound proxy. Empty = disabled, which is the default: the brief
+  # forbids depending on paid proxies/APIs. Documented in README.md.
+  # CLI: --proxy-url
+  proxy_url: ""
+
+  # Refuse to buffer a single document larger than this (bytes). A truncated
+  # download is flagged in the row's notes and its confidence is reduced.
+  max_download_bytes: 41943040      # 40 MiB
+
+logging:
+  # Dedicated log folder, separate from code and output. Each run writes
+  # {run_id}.jsonl (machine-readable) and {run_id}.log (human-readable), plus
+  # latest.jsonl / latest.log pointing at the most recent run.
+  # CLI: --log-dir
+  log_dir: "logs/"
+
+  # DEBUG | INFO | WARNING | ERROR | CRITICAL. DEBUG adds per-retry and
+  # per-candidate detail, which is verbose but invaluable when a payer's
+  # discovery path is not behaving as expected.
+  # CLI: --log-level
+  log_level: "INFO"
+
+  # Mirror the human-readable log to stdout. CLI: --quiet turns this off.
+  console: true
+
+  # Rotation for the human-readable log handler.
+  rotate_max_bytes: 10485760        # 10 MiB
+  rotate_backup_count: 5
+
+output:
+  # Where output.csv / output.xlsx are written.
+  # CLI: --output-dir
+  output_dir: "output/"
+
+  # "csv" or "xlsx". Both carry the identical 22 columns in identical order.
+  # CLI: --output-format
+  output_format: "csv"
+
+  # Root for the per-payer document copies: downloads/<payer_name>/<file>.
+  # The local path is internal bookkeeping and is NOT a schema column.
+  # CLI: --downloads-dir
+  downloads_dir: "downloads/"
+
+  # Save a copy of every fetched document. Turning this off leaves the dataset
+  # byte-for-byte identical (hashes are computed from the response either way)
+  # and just skips writing files. CLI: --no-downloads
+  save_downloads: true
+
+  # Write output.xlsx alongside output.csv regardless of output_format.
+  # CLI: --also-xlsx
+  also_write_xlsx: false
+
+email:
+  # MUST default to false. With email off the run needs no credentials at all
+  # and performs no network calls to any mail service.
+  # CLI: --email-enabled
+  enabled: false
+
+  # Where to send the finished dataset. CLI: --email-recipients a@b.com,c@d.com
+  recipients: []
+
+  # "gmail_api" (OAuth; needs google-api-python-client) or "smtp" (Gmail SMTP
+  # with an app password; simplest to set up). See README.md for the exact
+  # credential setup for each. CLI: --email-transport
+  smtp_or_gmail_api: "gmail_api"
+
+  # {run_id} is substituted with this run's id.
+  subject_template: "Payer Policy Crawl Output - {run_id}"
+
+  # Sender address. Left blank, the SMTP transport falls back to
+  # $CRAWLER_SMTP_USER. Credentials themselves are NEVER read from this file.
+  sender: ""
+  smtp_host: "smtp.gmail.com"
+  smtp_port: 587
+
+  # OAuth client + cached token for the gmail_api transport. Keep both out of
+  # version control.
+  gmail_credentials_file: "credentials.json"
+  gmail_token_file: "token.json"
+
+resume:
+  # Checkpoint file. A ".db" suffix selects SQLite (recommended: crash-safe);
+  # a ".json" suffix selects the JSON backend (slower, but readable by hand).
+  # Killing the run and re-issuing the same command continues from here and
+  # does not re-emit rows that were already collected.
+  # CLI: --state-file
+  state_file: "state/checkpoint.db"
+
+  # Set false (or pass --no-resume) to wipe the checkpoint and crawl fresh.
+  enabled: true
