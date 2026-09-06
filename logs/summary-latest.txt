@@ -1,14 +1,5 @@
   #  payer                              attempted  found  failed  skipped  dupes  elapsed  outcome
 --------------------------------------------------------------------------------------------------
-  1  UnitedHealthcare                          50     50       0        0      2    93.9s  ok
-  2  Horizon Blue Cross Blue Shield of          0      0       0        0      0    10.2s  BLOCKED - automated access refused (see log for evidence)
-  3  Cigna Healthcare                          50     50       0        1      0   111.3s  ok
-  4  UPMC Health Plan                           8      0       8        0      0    59.5s  no documents - crawled successfully, nothing publishable found
-  5  Elevance Health (Anthem)                   0      0       0        9      0   118.5s  BLOCKED - automated access refused (see log for evidence)
-  6  CareSource                                 0      0       0        0      0    11.0s  BLOCKED - automated access refused (see log for evidence)
-  7  Centene Corporation                        0      0       0        0      0     6.4s  BLOCKED - automated access refused (see log for evidence)
-  8  Geisinger Health Plan                      0      0       0        0      0    27.2s  no documents - crawled successfully, nothing publishable found
-  9  Highmark                                   4      4       0        0      1    34.8s  ok
- 10  BlueCross BlueShield of Tennessee          0      0       0        9      0     0.3s  BLOCKED - automated access refused (see log for evidence)
+  2  Horizon Blue Cross Blue Shield of          0      0       0        0      0    10.1s  BLOCKED - automated access refused (see log for evidence)
 --------------------------------------------------------------------------------------------------
-     TOTAL                                    112    104       8       19      3         
+     TOTAL                                      0      0       0        0      0         

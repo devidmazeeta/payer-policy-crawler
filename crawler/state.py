@@ -151,14 +151,20 @@ class Checkpoint:
         self._json_state: dict[str, Any] = {"runs": {}, "payers": {}, "rows": {}, "visited": {}}
 
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        # Deleting the file is attempted first (cheapest, leaves no residue), but
+        # the clear happens *after* the connection is open too, because deletion
+        # can legitimately fail - see _reset().
         if not self.enabled:
-            # Resume disabled: start from a clean slate so the run is a true
-            # from-scratch crawl, as the operator asked.
             self._reset()
         if self._json_mode:
             self._load_json()
+            if not self.enabled:
+                self._json_state = {"runs": {}, "payers": {}, "rows": {}, "visited": {}}
+                self._flush_json()
         else:
             self._open_sqlite()
+            if not self.enabled:
+                self._clear_tables()
 
     # -- lifecycle -----------------------------------------------------------
     def __enter__(self) -> "Checkpoint":
@@ -168,12 +174,53 @@ class Checkpoint:
         self.close()
 
     def _reset(self) -> None:
-        """Delete the checkpoint file (used when ``resume.enabled`` is false)."""
+        """
+        Try to delete the checkpoint file (used when ``resume.enabled`` is false).
+
+        Failure is expected and survivable: on Windows the file is often held
+        open by another tool (a DB browser, or the IDE's database panel), and
+        ``unlink`` then raises ``PermissionError``. Silently continuing at that
+        point would turn ``--no-resume`` into a no-op and hand the operator a
+        resumed run they explicitly asked not to have - so the fallback is to
+        clear the *contents* instead, which works through an open handle.
+        """
+        if not self.path.exists():
+            return
         try:
-            if self.path.exists():
-                self.path.unlink()
-        except OSError:
-            pass
+            self.path.unlink()
+        except OSError as exc:
+            if self.log is not None:
+                self.log.info(
+                    "resume.reset_fallback",
+                    f"could not delete {self.path} ({exc.__class__.__name__}: {exc}); "
+                    "clearing its contents instead so --no-resume still starts clean",
+                    path=str(self.path), error=str(exc),
+                )
+
+    def _clear_tables(self) -> None:
+        """
+        Empty every table, for when the checkpoint file could not be deleted.
+
+        Equivalent to a fresh file from the crawler's point of view: no payer is
+        complete and no row is known, so the run really does start from scratch.
+        """
+        assert self._connection is not None
+        try:
+            for table in ("rows", "payers", "visited", "runs"):
+                self._connection.execute(f"DELETE FROM {table}")
+            self._connection.commit()
+        except sqlite3.Error as exc:
+            # Now we genuinely cannot honour --no-resume. Say so loudly rather
+            # than proceeding as a resume behind the operator's back.
+            message = (
+                f"resume is disabled but {self.path} could neither be deleted nor "
+                f"cleared ({exc}). Refusing to continue, because the run would "
+                f"silently resume instead of starting fresh. Close any program "
+                f"holding the file open, or pass a different --state-file."
+            )
+            if self.log is not None:
+                self.log.error("resume.reset_failed", message, path=str(self.path))
+            raise RuntimeError(message) from exc
 
     def _open_sqlite(self) -> None:
         self._connection = sqlite3.connect(self.path, timeout=30.0)

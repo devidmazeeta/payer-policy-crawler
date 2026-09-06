@@ -457,9 +457,21 @@ def test_hash_and_size_are_derived_from_the_raw_bytes():
 
 
 def test_text_decoding_falls_back_gracefully():
-    """Payer HTML routinely mislabels its encoding."""
-    result = FetchResult(url="https://e.com/x", status=200,
-                         content="policy – café".encode("cp1252"),
+    """
+    Payer HTML routinely mislabels its encoding: the header says UTF-8 but the
+    bytes are cp1252. Decoding must fall back rather than lose the page.
+
+    The test string is built from codepoints so this file stays pure ASCII - an
+    editor re-encoding the source would otherwise silently change what is being
+    tested (the whole point is that the bytes are *not* valid UTF-8).
+    """
+    en_dash, e_acute = chr(0x2013), chr(0x00E9)
+    body = f"policy {en_dash} caf{e_acute}".encode("cp1252")
+    assert body.decode("utf-8", errors="ignore") != f"policy {en_dash} caf{e_acute}"
+
+    result = FetchResult(url="https://e.com/x", status=200, content=body,
                          headers={"content-type": "text/html; charset=utf-8"})
     text = result.text()
     assert "policy" in text
+    # The cp1252 fallback must recover the accented characters, not mangle them.
+    assert e_acute in text

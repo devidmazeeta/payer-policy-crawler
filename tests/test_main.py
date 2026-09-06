@@ -421,3 +421,19 @@ def test_summary_includes_checkpointed_payers_outside_this_selection():
                                   "skipped_robots": 0, "elapsed_s": 1.0},
     }
     assert "Z From A Previous Run" in render_summary(stats, payers)
+
+
+def test_summary_distinguishes_dead_links_from_nothing_published():
+    """
+    UPMC's real behaviour: we found 8 policy links and all 8 returned 404. That
+    is a different finding from "this payer publishes nothing", and the non-200
+    rows are in the dataset as evidence of the attempt.
+    """
+    payers = [make_payer("Dead Links Payer", 1)]
+    stats = {"Dead Links Payer": {"attempted": 8, "found": 0, "failed": 8,
+                                  "skipped_robots": 0, "blocked": False,
+                                  "elapsed_s": 60.0}}
+    table = render_summary(stats, payers)
+    assert "no live documents" in table
+    assert "8/8" in table
+    assert "nothing publishable found" not in table

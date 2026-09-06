@@ -207,12 +207,21 @@ def _summary_line(position: int, payer_name: str, stats: dict[str, Any]) -> str:
     blocked = bool(stats.get("blocked"))
     skipped = int(stats.get("skipped_robots", 0) or 0)
 
+    failed = int(stats.get("failed", 0) or 0)
+    attempted = int(stats.get("attempted", 0) or 0)
+
     if blocked and found == 0:
         outcome = "BLOCKED - automated access refused (see log for evidence)"
     elif blocked:
         outcome = f"partial - {found} found before being blocked"
     elif status == STATUS_FAILED:
         outcome = "FAILED - crawl error, see log"
+    elif found == 0 and failed > 0:
+        # Documents were located and requested; the payer's own links were dead.
+        # That is a different finding from "publishes nothing", and the non-200
+        # rows are in the dataset as evidence of the attempt.
+        outcome = (f"no live documents - {failed}/{attempted} discovered link(s) "
+                   f"returned non-200; rows kept as evidence")
     elif found == 0 and skipped > 0:
         outcome = f"no documents - {skipped} candidate(s) robots-disallowed"
     elif found == 0:

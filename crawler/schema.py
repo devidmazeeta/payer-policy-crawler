@@ -420,6 +420,11 @@ def normalise_row(row: DocumentRow) -> DocumentRow:
     # the bytes.
     if row.http_status != "200" or row.requires_auth == "Y":
         row.content_hash_sha256 = ""
+        # file_size_bytes describes the *document*. On a non-200 the bytes we
+        # received are an error page or a login form, so reporting their length
+        # would be actively misleading - a 404 row would claim a 59 KB document.
+        # Unknown means the empty string.
+        row.file_size_bytes = ""
 
     row.confidence_score = format_confidence(row.confidence_score)
     ts = clean_text(row.scrape_timestamp_utc)

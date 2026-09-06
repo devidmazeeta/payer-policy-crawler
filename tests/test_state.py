@@ -271,3 +271,33 @@ def test_full_resume_scenario(tmp_path):
         assert {row.payer_name for row in rows} == {"Payer A", "Payer B", "Payer C"}
         urls = [str(row.document_url) for row in rows]
         assert len(urls) == len(set(urls))
+
+
+def test_no_resume_clears_contents_when_the_file_cannot_be_deleted(tmp_path, log,
+                                                                   monkeypatch):
+    """
+    On Windows the checkpoint is often held open by another tool (a DB browser,
+    the IDE's database panel), so unlink raises PermissionError. --no-resume must
+    still start clean rather than silently becoming a resumed run.
+    """
+    path = tmp_path / "checkpoint.db"
+    with Checkpoint(path) as checkpoint:
+        checkpoint.start_run("run-1", {})
+        checkpoint.save_rows([make_row()], "run-1")
+        checkpoint.mark_payer("Payer One", STATUS_DONE, "run-1")
+
+    original_unlink = Path.unlink
+
+    def refuse(self, *args, **kwargs):
+        if self.name.startswith("checkpoint.db"):
+            raise PermissionError(32, "The process cannot access the file")
+        return original_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", refuse)
+
+    with Checkpoint(path, enabled=False, log=log) as fresh:
+        assert fresh.row_count() == 0
+        assert fresh.payer_status("Payer One") == STATUS_PENDING
+        assert fresh.previous_runs() == 0
+    # And it must have said what it did, not failed silently.
+    assert any(event == "resume.reset_fallback" for _, event, _ in log.records)

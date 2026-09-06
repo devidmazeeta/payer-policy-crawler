@@ -819,12 +819,19 @@ def build_row(
 
     confidence = max(0.0, min(1.0, confidence))
     note_parts = [clean_text(notes)] if notes else []
-    if confidence < 0.70:
-        note_parts.extend(reasons)
-    elif result.truncated:
+    if confidence < 0.70 or result.truncated:
         note_parts.extend(reasons)
     if result.final_url and result.final_url != url:
         note_parts.append(f"redirected to {result.final_url}")
+    # De-duplicate: the caller's note and the auto-generated reason often say the
+    # same thing (both mention the status code), and a row whose notes repeat
+    # themselves reads like a bug even when the data is right.
+    deduped: list[str] = []
+    for part in note_parts:
+        part = clean_text(part).strip("; ")
+        if part and part not in deduped:
+            deduped.append(part)
+    note_parts = deduped
 
     row = DocumentRow(
         payer_name=payer.payer_name,
@@ -850,7 +857,7 @@ def build_row(
         extraction_method="|".join(dict.fromkeys(methods)),
         confidence_score=confidence,
         scrape_timestamp_utc=fetched_at,
-        notes="; ".join(part for part in note_parts if part)[:1000],
+        notes="; ".join(note_parts)[:1000].strip("; "),
     )
     row.content_text = text[:20000]
     return normalise_row(row)
