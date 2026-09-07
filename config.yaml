@@ -32,7 +32,7 @@ crawl:
   # 1-based inclusive selection over the seed CSV. Accepts "1-10", "3,5,7",
   # "1-3,8" or "all". Useful for splitting a run or re-crawling one payer.
   # CLI: --payer-range
-  payer_range: "2-2"
+  payer_range: "1-10"
 
   # Maximum simultaneous in-flight HTTP requests across the ENTIRE run.
   # This is a global ceiling; per-host pacing is the setting below.
@@ -145,10 +145,10 @@ email:
   # MUST default to false. With email off the run needs no credentials at all
   # and performs no network calls to any mail service.
   # CLI: --email-enabled
-  enabled: true
+  enabled: false
 
   # Where to send the finished dataset. CLI: --email-recipients a@b.com,c@d.com
-  recipients: ["devidgfmazeeta234@gmail.com"]
+  recipients: []
 
   # "gmail_api" (OAuth; needs google-api-python-client) or "smtp" (Gmail SMTP
   # with an app password; simplest to set up). See README.md for the exact
@@ -160,7 +160,7 @@ email:
 
   # Sender address. Left blank, the SMTP transport falls back to
   # $CRAWLER_SMTP_USER. Credentials themselves are NEVER read from this file.
-  sender: "devidmazeetagf@gmail.com"
+  sender: ""
   smtp_host: "smtp.gmail.com"
   smtp_port: 587
 
